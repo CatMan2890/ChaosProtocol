@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAOS PROTOCOL</title>
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      text-align: center;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    canvas {
+      border: 2px solid white;
+      display: block;
+      margin: 20px auto;
+      background: #000;
+    }
+    button {
+      font-size: 16px;
+      padding: 10px;
+      margin: 10px;
+      cursor: pointer;
+    }
+    #langSelection {
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid white;
+      padding: 20px;
+      width: 300px;
+      margin: 30px auto;
+    }
+    #levelSelection {
+      display: none;
+      background: rgba(0, 0, 0, 0.85);
+      border: 2px solid white;
+      padding: 20px;
+      width: 350px;
+      margin: 30px auto;
+    }
+    #levelButtons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    #levelButtons button {
+      width: 150px;
+      margin: 5px;
+    }
+    #gameUI {
+      display: none;
+    }
+    #infoBox {
+      display: none;
+      background: rgba(0, 0, 0, 0.9);
+      border: 2px solid white;
+      padding: 20px;
+      width: 320px;
+      margin: 20px auto;
+    }
+    #touchControls {
+      position: fixed;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 1000;
+    }
+    #touchControls > div {
+      display: flex;
+      justify-content: center;
+    }
+    #touchControls button {
+      margin: 10px;
+      font-size: 28px;
+      width: 70px;
+      height: 70px;
+      border-radius: 15px;
+      background-color: #333;
+      color: white;
+      border: none;
+    }
+    #attackControl {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+    }
+    #attackControl button {
+      margin: 10px;
+      font-size: 28px;
+      width: 70px;
+      height: 70px;
+      border-radius: 15px;
+      background-color: #bf0000;
+      color: white;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Экран выбора языка -->
+  <div id="langSelection">
+    <h1 id="gameTitle">CHAOS PROTOCOL</h1>
+    <p id="gameDesc">Выберите язык для игры:</p>
+    <button onclick="setLanguage('ru')">Русский</button>
+    <button onclick="setLanguage('uk')">Українська</button>
+    <button onclick="setLanguage('en')">English</button>
+  </div>
+
+  <!-- Экран выбора уровня -->
+  <div id="levelSelection">
+    <h2 id="levelTitle">Выберите уровень</h2>
+    <div id="levelButtons"></div>
+  </div>
+
+  <!-- Игровой UI -->
+  <div id="gameUI">
+    <p id="timer">Время: 0 сек.</p>
+    <canvas id="gameCanvas"></canvas>
+    <button onclick="showGameInfo()">ℹ️ Информация об игре</button>
+    <!-- Панель сенсорного управления -->
+    <div id="touchControls">
+      <div>
+        <button id="btnUp">↑</button>
+      </div>
+      <div>
+        <button id="btnLeft">←</button>
+        <button id="btnDown">↓</button>
+        <button id="btnRight">→</button>
+      </div>
+    </div>
+    <!-- Панель атаки -->
+    <div id="attackControl">
+      <button id="btnAttack">✦</button>
+    </div>
+  </div>
+
+  <!-- Информационное окно -->
+  <div id="infoBox">
+    <h2 id="infoTitle">CHAOS PROTOCOL</h2>
+    <ul id="gameFeatures"></ul>
+    <button onclick="hideGameInfo()">Закрыть</button>
+  </div>
+
+  <!-- Музыкальное сопровождение -->
+  <audio id="gameMusic" loop>
+    <source src="your-retro-music.mp3" type="audio/mpeg" />
+  </audio>
+
+  <script>
+    /* ===== ПЕРЕМЕННЫЕ И НАСТРОЙКИ ===== */
+    const levelList = [
+      { key: "default", name: {ru:"Стандартный хаос",uk:"Стандартний хаос",en:"Standard Chaos"} },
+      { key: "ice", name: {ru:"Ледяной хаос",uk:"Крижаний хаос",en:"Ice Chaos"} },
+      { key: "fire", name: {ru:"Огненный хаос",uk:"Вогняний хаос",en:"Fire Chaos"} },
+      { key: "tech", name: {ru:"Технократия",uk:"Технократія",en:"Technochaos"} },
+      // --- Новые уровни ---
+      { key: "space", name: {ru:"Космический хаос",uk:"Космічний хаос",en:"Space Chaos"} },
+      { key: "dark", name: {ru:"Тёмный лес",uk:"Темний ліс",en:"Dark Forest"} },
+      { key: "radiation", name: {ru:"Радиационный шторм",uk:"Радіаційний шторм",en:"Radiation Storm"} },
+      { key: "toxic", name: {ru:"Ядовитый туман",uk:"Отруйний туман",en:"Toxic Fog"} },
+      { key: "mirror", name: {ru:"Зеркальный мир",uk:"Дзеркальний світ",en:"Mirror World"} },
+      { key: "gravity", name: {ru:"Гравитационная аномалия",uk:"Гравітаційна аномалія",en:"Gravity Anomaly"} }
+    ];
+    const translations = {
+      ru: {
+        gameTitle: "CHAOS PROTOCOL",
+        gameDesc: "Выживай в мире хаоса!",
+        infoTitle: "CHAOS PROTOCOL",
+        levelTitle: "Выберите уровень",
+        gameFeaturesList: [
+          // Индекс совпадает с levelList
+          [
+            "Щит активируется каждую минуту на 5 секунд.",
+            "Враги становятся быстрее со временем.",
+            "Победа — если прожить 10 минут.",
+            "После 10 минут появляется Босс.",
+            "Атакуй босса, чтобы победить его!",
+            "Разрушаемые объекты, бонусы и режим 'Безумного хаоса'!",
+            "Онлайн‑лидерборд (лучшая попытка сохраняется)!"
+          ],
+          [
+            "Лёд замедляет движение игрока и врагов.",
+            "Щит активируется каждую минуту на 5 секунд.",
+            "Враги становятся быстрее со временем.",
+            "Победа — если прожить 10 минут.",
+            "После 10 минут появляется Босс.",
+            "Разрушаемые объекты и бонусы!",
+            "Онлайн‑лидерборд (лучшая попытка сохраняется)!"
+          ],
+          [
+            "Появляются огненные волны, касание — мгновенный проигрыш.",
+            "Щит активируется каждую минуту на 5 секунд.",
+            "Враги становятся быстрее со временем.",
+            "Победа — если прожить 10 минут.",
+            "После 10 минут появляется Босс.",
+            "Разрушаемые объекты и бонусы!",
+            "Онлайн‑лидерборд (лучшая попытка сохраняется)!"
+          ],
+          [
+            "Уровень скорости выше, враги быстрее.",
+            "Щит активируется каждую минуту на 5 секунд.",
+            "Враги становятся быстрее со временем.",
+            "Победа — если прожить 10 минут.",
+            "После 10 минут появляется Босс.",
+            "Разрушаемые объекты и бонусы!",
+            "Онлайн‑лидерборд (лучшая попытка сохраняется)!"
+          ],
+          // Новые уровни
+          [
+            "Невесомость: игрок и враги дрейфуют, инерция.",
+            "Появляются астероиды — опасные препятствия.",
+            "Щит активируется каждую минуту на 5 секунд."
+          ],
+          [
+            "Экран затемнён, круг света вокруг игрока.",
+            "Враги иногда прячутся в тени.",
+            "Появляются ловушки."
+          ],
+          [
+            "Периодически появляются радиационные зоны.",
+            "Контакт с зоной наносит урон.",
+            "Есть бонус-антидот."
+          ],
+          [
+            "Появляется фиолетовый туман, который замедляет и наносит урон.",
+            "Щит активируется каждую минуту на 5 секунд."
+          ],
+          [
+            "Управление периодически инвертируется.",
+            "Враги двигаются по зеркальным траекториям."
+          ],
+          [
+            "В центре — чёрная дыра: всё притягивает.",
+            "Траектории объектов искажаются."
+          ]
+        ],
+        timerPrefix: "Время: "
+      },
+      uk: {
+        gameTitle: "ПРОТОКОЛ ХАОСУ",
+        gameDesc: "Виживай у світі хаосу!",
+        infoTitle: "ПРОТОКОЛ ХАОСУ",
+        levelTitle: "Оберіть рівень",
+        gameFeaturesList: [
+          [
+            "Щит активується кожну хвилину на 5 секунд.",
+            "Вороги стають швидшими з часом.",
+            "Перемога — якщо вижити 10 хвилин.",
+            "Після 10 хвилин з'являється Бос.",
+            "Атакуй боса, щоб його перемогти!",
+            "Розрушувані об'єкти, бонуси і режим 'Безумного хаосу'!",
+            "Онлайн‑лідерборд (кращий результат зберігається)!"
+          ],
+          [
+            "Лід сповільнює рух гравця і ворогів.",
+            "Щит активується кожну хвилину на 5 секунд.",
+            "Вороги стають швидшими з часом.",
+            "Перемога — якщо вижити 10 хвилин.",
+            "Після 10 хвилин з'являється Бос.",
+            "Розрушувані об'єкти і бонуси!",
+            "Онлайн‑лідерборд (кращий результат зберігається)!"
+          ],
+          [
+            "З'являються вогняні хвилі, дотик — миттєвий програш.",
+            "Щит активується кожну хвилину на 5 секунд.",
+            "Вороги стають швидшими з часом.",
+            "Перемога — якщо вижити 10 хвилин.",
+            "Після 10 хвилин з'являється Бос.",
+            "Розрушувані об'єкти і бонуси!",
+            "Онлайн‑лідерборд (кращий результат зберігається)!"
+          ],
+          [
+            "Вищий рівень швидкості, вороги швидші.",
+            "Щит активується кожну хвилину на 5 секунд.",
+            "Вороги стають швидшими з часом.",
+            "Перемога — якщо вижити 10 хвилин.",
+            "Після 10 хвилин з'являється Бос.",
+            "Розрушувані об'єкти і бонуси!",
+            "Онлайн‑лідерборд (кращий результат зберігається)!"
+          ],
+          // Новые уровни
+          [
+            "Невагомість: гравець і вороги дрейфують, інерція.",
+            "З'являються астероїди — небезпечні перешкоди.",
+            "Щит активується кожну хвилину на 5 секунд."
+          ],
+          [
+            "Екран затемнений, коло світла навколо гравця.",
+            "Вороги іноді ховаються в тіні.",
+            "З'являються пастки."
+          ],
+          [
+            "Періодично з'являються радіаційні зони.",
+            "Контакт із зоною — шкода.",
+            "Є бонус-антидот."
+          ],
+          [
+            "З'являється фіолетовий туман, який сповільнює й наносить шкоду.",
+            "Щит активується кожну хвилину на 5 секунд."
+          ],
+          [
+            "Керування періодично інвертується.",
+            "Вороги рухаються дзеркально."
+          ],
+          [
+            "У центрі — чорна діра: все притягує.",
+            "Траєкторії об'єктів викривляються."
+          ]
+        ],
+        timerPrefix: "Час: "
+      },
+      en: {
+        gameTitle: "CHAOS PROTOCOL",
+        gameDesc: "Survive the chaos!",
+        infoTitle: "CHAOS PROTOCOL",
+        levelTitle: "Choose Level",
+        gameFeaturesList: [
+          [
+            "Shield activates every minute for 5 seconds.",
+            "Enemies speed up over time.",
+            "Victory – if you survive 10 minutes.",
+            "Boss appears after 10 minutes.",
+            "Attack the boss to defeat him!",
+            "Destructible objects, power-ups and Crazy Chaos mode!",
+            "Online leaderboard (top score saved)!"
+          ],
+          [
+            "Ice slows player and enemies.",
+            "Shield activates every minute for 5 seconds.",
+            "Enemies speed up over time.",
+            "Victory – if you survive 10 minutes.",
+            "Boss appears after 10 minutes.",
+            "Destructible objects and power-ups!",
+            "Online leaderboard (top score saved)!"
+          ],
+          [
+            "Fire waves appear, contact — instant game over.",
+            "Shield activates every minute for 5 seconds.",
+            "Enemies speed up over time.",
+            "Victory – if you survive 10 minutes.",
+            "Boss appears after 10 minutes.",
+            "Destructible objects and power-ups!",
+            "Online leaderboard (top score saved)!"
+          ],
+          [
+            "High speed level, enemies are faster.",
+            "Shield activates every minute for 5 seconds.",
+            "Enemies speed up over time.",
+            "Victory – if you survive 10 minutes.",
+            "Boss appears after 10 minutes.",
+            "Destructible objects and power-ups!",
+            "Online leaderboard (top score saved)!"
+          ],
+          // Новые уровни
+          [
+            "Zero gravity: player & enemies drift, inertia.",
+            "Asteroids appear — deadly obstacles.",
+            "Shield activates every minute for 5 seconds."
+          ],
+          [
+            "Screen is dark, only a light circle around you.",
+            "Enemies can hide in shadows.",
+            "Traps appear."
+          ],
+          [
+            "Radiation zones periodically appear.",
+            "Contact with a zone deals damage.",
+            "Antidote power-up is available."
+          ],
+          [
+            "Toxic fog appears, slows & damages you.",
+            "Shield activates every minute for 5 seconds."
+          ],
+          [
+            "Controls periodically invert.",
+            "Enemies move in mirrored trajectories."
+          ],
+          [
+            "Black hole in center: pulls everything.",
+            "Object trajectories are distorted."
+          ]
+        ],
+        timerPrefix: "Time: "
+      }
+    };
+    let currentLang = "ru";
+    let currentLevel = "default";
+    let currentLevelIndex = 0;
+
+    // --- Игровые переменные (оставляем, как в оригинале; далее по коду добавим новые для спецуровней) ---
+
+    // ... (Оставьте все переменные и функции, как в вашем оригинальном ChaosProtocol.html, кроме selectLevel и setLanguage — их надо заменить!)
+
+    // === МЕНЮ ===
+    function setLanguage(lang) {
+      currentLang = lang;
+      document.getElementById("gameTitle").innerText = translations[lang].gameTitle;
+      document.getElementById("gameDesc").innerText = translations[lang].gameDesc;
+      document.getElementById("infoTitle").innerText = translations[lang].infoTitle;
+      document.getElementById("levelTitle").innerText = translations[lang].levelTitle;
+      renderLevelButtons();
+      document.getElementById("langSelection").style.display = "none";
+      document.getElementById("levelSelection").style.display = "block";
+    }
+    function renderLevelButtons() {
+      const container = document.getElementById("levelButtons");
+      container.innerHTML = "";
+      levelList.forEach((level, idx) => {
+        const btn = document.createElement("button");
+        btn.innerText = level.name[currentLang];
+        btn.onclick = () => selectLevel(level.key, idx);
+        container.appendChild(btn);
+      });
+    }
+    function selectLevel(level, idx) {
+      currentLevel = level;
+      currentLevelIndex = idx;
+      document.getElementById("levelSelection").style.display = "none";
+      document.getElementById("gameUI").style.display = "block";
+      document.getElementById("gameMusic").play();
+      // Обновить описание уровня в infoBox:
+      document.getElementById("gameFeatures").innerHTML =
+        translations[currentLang].gameFeaturesList[idx].map(f => `<li>${f}</li>`).join("");
+      startGame();
+    }
+    function showGameInfo() { document.getElementById("infoBox").style.display = "block"; }
+    function hideGameInfo() { document.getElementById("infoBox").style.display = "none"; }
+
+    // === Остальная логика игры (canvas, управление, spawn и т.д.) ===
+    // ... (Ваш существующий код из ChaosProtocol.html, с добавлением спецэффектов ниже для новых уровней)
+
+    // === Пример добавления новых механик для уровней ===
+    // Пример: внутри функций update и draw добавляйте спецэффекты по currentLevel
+    // Например:
+    /*
+    if (currentLevel === "space") {
+      // Невесомость: игрок и враги продолжают движение по инерции,
+      // астероиды периодически появляются и движутся по прямой
+    }
+    if (currentLevel === "dark") {
+      // Затемнение canvas, рисовать светлый круг вокруг игрока
+    }
+    if (currentLevel === "radiation") {
+      // Радиоактивные зоны: кружки на поле, контакт = урон
+    }
+    if (currentLevel === "toxic") {
+      // Фиолетовый ползущий туман, если игрок касается — замедление/урон
+    }
+    if (currentLevel === "mirror") {
+      // Периодическая инверсия управления
+    }
+    if (currentLevel === "gravity") {
+      // В центре — чёрная дыра: всё немного "притягивает"
+    }
+    */
+    // Если нужны готовые вставки для каждой механики — дайте знать!
+
+    // --- Вызов меню при загрузке страницы ---
+    window.onload = () => {
+      document.getElementById("langSelection").style.display = "block";
+    }
+  </script>
+</body>
+</html>
