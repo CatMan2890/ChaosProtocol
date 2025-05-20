@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Чтобы корректно отображать на мобильных устройствах -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAOS PROTOCOL</title>
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      text-align: center;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    canvas {
+      border: 2px solid white;
+      display: block;
+      margin: 20px auto;
+      background: #000;
+    }
+    button {
+      font-size: 16px;
+      padding: 10px;
+      margin: 10px;
+      cursor: pointer;
+    }
+    /* Экран выбора языка */
+    #langSelection {
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid white;
+      padding: 20px;
+      width: 300px;
+      margin: 30px auto;
+    }
+    /* Экран выбора уровня */
+    #levelSelection {
+      display: none;
+      background: rgba(0, 0, 0, 0.85);
+      border: 2px solid white;
+      padding: 20px;
+      width: 320px;
+      margin: 30px auto;
+    }
+    /* Игровой UI */
+    #gameUI {
+      display: none;
+    }
+    /* Информационное окно */
+    #infoBox {
+      display: none;
+      background: rgba(0, 0, 0, 0.9);
+      border: 2px solid white;
+      padding: 20px;
+      width: 300px;
+      margin: 20px auto;
+    }
+    /* Панель сенсорного управления */
+    #touchControls {
+      position: fixed;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 1000;
+    }
+    #touchControls > div {
+      display: flex;
+      justify-content: center;
+    }
+    /* Большие сенсорные кнопки */
+    #touchControls button {
+      margin: 10px;
+      font-size: 28px;
+      width: 70px;
+      height: 70px;
+      border-radius: 15px;
+      background-color: #333;
+      color: white;
+      border: none;
+    }
+    /* Панель атаки */
+    #attackControl {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+    }
+    #attackControl button {
+      margin: 10px;
+      font-size: 28px;
+      width: 70px;
+      height: 70px;
+      border-radius: 15px;
+      background-color: #bf0000;
+      color: white;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Экран выбора языка -->
+  <div id="langSelection">
+    <h1 id="gameTitle">CHAOS PROTOCOL</h1>
+    <p id="gameDesc">Выберите язык для игры:</p>
+    <button onclick="setLanguage('ru')">Русский</button>
+    <button onclick="setLanguage('uk')">Українська</button>
+    <button onclick="setLanguage('en')">English</button>
+  </div>
+
+  <!-- Экран выбора уровня -->
+  <div id="levelSelection">
+    <h2>Выберите уровень</h2>
+    <button onclick="selectLevel('default')">Стандартный хаос</button>
+    <button onclick="selectLevel('ice')">Ледяной хаос</button>
+    <button onclick="selectLevel('fire')">Огненный хаос</button>
+    <button onclick="selectLevel('tech')">Технократия</button>
+  </div>
+
+  <!-- Игровой UI (отображается после выбора уровня) -->
+  <div id="gameUI">
+    <p id="timer">Время: 0 сек.</p>
+    <canvas id="gameCanvas"></canvas>
+    <button onclick="showGameInfo()">ℹ️ Информация об игре</button>
+    <!-- Панель сенсорного управления -->
+    <div id="touchControls">
+      <div>
+        <button id="btnUp">↑</button>
+      </div>
+      <div>
+        <button id="btnLeft">←</button>
+        <button id="btnDown">↓</button>
+        <button id="btnRight">→</button>
+      </div>
+    </div>
+    <!-- Панель атаки -->
+    <div id="attackControl">
+      <button id="btnAttack">✦</button>
+    </div>
+  </div>
+
+  <!-- Информационное окно -->
+  <div id="infoBox">
+    <h2 id="infoTitle">CHAOS PROTOCOL</h2>
+    <ul id="gameFeatures">
+      <li>Щит активируется каждую минуту на 5 секунд.</li>
+      <li>Враги становятся быстрее со временем.</li>
+      <li>Победа — если прожить 10 минут.</li>
+      <li>После 10 минут появляется Босс.</li>
+      <li>Атакуй босса, чтобы победить его!</li>
+      <li>Разрушаемые объекты, бонусы и режим "Безумного хаоса"!</li>
+      <li>Улучшенный босс с телепортацией, турбо-режим и артефакты!</li>
+      <li>Выбор уровня: Стандарт, Лед, Огонь, Технократия.</li>
+      <li>Онлайн‑лидерборд (лучшая попытка сохраняется)!</li>
+    </ul>
+    <button onclick="hideGameInfo()">Закрыть</button>
+  </div>
+
+  <!-- Музыкальное сопровождение -->
+  <audio id="gameMusic" loop>
+    <source src="your-retro-music.mp3" type="audio/mpeg" />
+  </audio>
+
+  <script>
+    /* ===== ПЕРЕМЕННЫЕ И НАСТРОЙКИ ===== */
+    const translations = {
+      ru: {
+        gameTitle: "CHAOS PROTOCOL",
+        gameDesc: "Выживай в мире хаоса!",
+        infoTitle: "CHAOS PROTOCOL",
+        gameFeatures: [
+          "Щит активируется каждую минуту на 5 секунд.",
+          "Враги становятся быстрее со временем.",
+          "Победа — если прожить 10 минут.",
+          "После 10 минут появляется Босс.",
+          "Атакуй босса, чтобы победить его!",
+          "Разрушаемые объекты, бонусы и режим 'Безумного хаоса'!",
+          "Улучшенный босс с телепортацией, турбо-режим и артефакты!",
+          "Выбор уровня: Стандарт, Лед, Огонь, Технократия.",
+          "Онлайн‑лидерборд (лучшая попытка сохраняется)!"
+        ],
+        timerPrefix: "Время: "
+      },
+      uk: {
+        gameTitle: "ПРОТОКОЛ ХАОСУ",
+        gameDesc: "Виживай у світі хаосу!",
+        infoTitle: "ПРОТОКОЛ ХАОСУ",
+        gameFeatures: [
+          "Щит активується кожну хвилину на 5 секунд.",
+          "Вороги стають швидшими з часом.",
+          "Перемога — якщо вижити 10 хвилин.",
+          "Після 10 хвилин з'являється Бос.",
+          "Атакуй боса, щоб його перемогти!",
+          "Розрушувані об'єкти, бонуси і режим 'Безумного хаосу'!",
+          "Покращений бос з телепортацією, турбо-режим та артефакти!",
+          "Вибір рівня: Стандарт, Лід, Вогонь, Технократія.",
+          "Онлайн‑лідерборд (кращий результат зберігається)!"
+        ],
+        timerPrefix: "Час: "
+      },
+      en: {
+        gameTitle: "CHAOS PROTOCOL",
+        gameDesc: "Survive the chaos!",
+        infoTitle: "CHAOS PROTOCOL",
+        gameFeatures: [
+          "Shield activates every minute for 5 seconds.",
+          "Enemies speed up over time.",
+          "Victory – if you survive 10 minutes.",
+          "Boss appears after 10 minutes.",
+          "Attack the boss to defeat him!",
+          "Destructible objects, power-ups and Crazy Chaos mode!",
+          "Improved boss with teleportation, turbo mode and artifacts!",
+          "Level selection: Standard, Ice, Fire, Tech.",
+          "Online leaderboard (top score saved)!"
+        ],
+        timerPrefix: "Time: "
+      }
+    };
+    let currentLang = "ru";
+    let currentLevel = "default"; // варианты: default, ice, fire, tech
+    
+    // Игровые переменные
+    let basePlayerSpeed = 5;
+    let player = { x: 0, y: 0, size: 30, speed: basePlayerSpeed, shield: false };
+    let enemies = [];
+    let boss = null;
+    let finalBoss = null;
+    let gameOver = false;
+    let enemySpeed = 2;
+    let spawnRate = 0.02;
+    let startTime;
+    const bossSpawnTime = 600000; // 10 минут для первого босса
+    const finalBossDelay = 300000; // 5 минут после победы над первым боссом
+    let bossDefeated = false;
+    let chaosMode = false;
+    let finalBossSpawned = false;
+    let lastShieldTime = 0;
+    let bullets = [];
+    let lastBulletTime = 0;
+    const bulletCooldown = 300;
+    let turboMode = false;
+    let turboEndTime = 0;
+    
+    // Новые механики: стены, бонусы, ветер, огненные волны
+    let walls = [];
+    let powerups = [];
+    let wind = { active: false, forceX: 0, forceY: 0, endTime: 0 };
+    let fireWaves = []; // для огненного уровня
+    
+    // Эффекты бонусов
+    let bonusEffects = { speedUntil: 0, doubleUntil: 0, freezeUntil: 0, turboUntil: 0 };
+    let freezeEnemies = false;
+    
+    // Онлайн-лидерборд через localStorage
+    function updateLeaderboard(score) {
+      let leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+      let playerName = prompt("Введите ваше имя для таблицы лидеров:", "Player");
+      leaderboard.push({ name: playerName, score: score });
+      leaderboard.sort((a, b) => b.score - a.score);
+      leaderboard = leaderboard.slice(0, 5);
+      localStorage.setItem("leaderboard", JSON.stringify(leaderboard));
+      let message = "Лидерборд:\n";
+      leaderboard.forEach((entry, i) => { message += `${i + 1}. ${entry.name}: ${entry.score}\n`; });
+      alert(message);
+    }
+    
+    /* ===== МЕНЮ ===== */
+    function setLanguage(lang) {
+      currentLang = lang;
+      // Обновляем текстовые элементы меню
+      document.getElementById("gameTitle").innerText = translations[lang].gameTitle;
+      document.getElementById("gameDesc").innerText = translations[lang].gameDesc;
+      document.getElementById("infoTitle").innerText = translations[lang].infoTitle;
+      document.getElementById("gameFeatures").innerHTML =
+        translations[lang].gameFeatures.map(f => `<li>${f}</li>`).join("");
+      // Переход к выбору уровня
+      document.getElementById("langSelection").style.display = "none";
+      document.getElementById("levelSelection").style.display = "block";
+    }
+    
+    function selectLevel(level) {
+      currentLevel = level;
+      if (level === "default") { basePlayerSpeed = 5; }
+      else if (level === "ice") { basePlayerSpeed = 3; }
+      else if (level === "fire") { basePlayerSpeed = 5; }
+      else if (level === "tech") { basePlayerSpeed = 6; enemySpeed *= 1.2; }
+      player.speed = basePlayerSpeed;
+      // Переходим к игровому процессу
+      document.getElementById("levelSelection").style.display = "none";
+      document.getElementById("gameUI").style.display = "block";
+      document.getElementById("gameMusic").play();
+      startGame();
+    }
+    
+    function showGameInfo() { document.getElementById("infoBox").style.display = "block"; }
+    function hideGameInfo() { document.getElementById("infoBox").style.display = "none"; }
+    
+    /* ===== ОБРАБОТКА CANVAS ===== */
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = 800;
+    canvas.height = 600;
+    
+    /* ===== ОБРАБОТКА ВВОДА ===== */
+    let keys = {};
+    document.addEventListener("keydown", (e) => {
+      if (e.key === " " || e.key === "Spacebar") {
+        let now = Date.now();
+        if (now - lastBulletTime > bulletCooldown) {
+          fireBullet();
+          lastBulletTime = now;
+        }
+      }
+      keys[e.key] = true;
+    });
+    document.addEventListener("keyup", (e) => { keys[e.key] = false; });
+    
+    function addTouchControls() {
+      const btnUp = document.getElementById("btnUp");
+      const btnDown = document.getElementById("btnDown");
+      const btnLeft = document.getElementById("btnLeft");
+      const btnRight = document.getElementById("btnRight");
+      
+      btnUp.addEventListener("touchstart", (e) => { e.preventDefault(); keys["ArrowUp"] = true; });
+      btnUp.addEventListener("touchend", (e) => { e.preventDefault(); keys["ArrowUp"] = false; });
+      
+      btnDown.addEventListener("touchstart", (e) => { e.preventDefault(); keys["ArrowDown"] = true; });
+      btnDown.addEventListener("touchend", (e) => { e.preventDefault(); keys["ArrowDown"] = false; });
+      
+      btnLeft.addEventListener("touchstart", (e) => { e.preventDefault(); keys["ArrowLeft"] = true; });
+      btnLeft.addEventListener("touchend", (e) => { e.preventDefault(); keys["ArrowLeft"] = false; });
+      
+      btnRight.addEventListener("touchstart", (e) => { e.preventDefault(); keys["ArrowRight"] = true; });
+      btnRight.addEventListener("touchend", (e) => { e.preventDefault(); keys["ArrowRight"] = false; });
+      
+      document.getElementById("btnAttack").addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        fireBullet();
+      });
+    }
+    addTouchControls();
+    
+    /* ===== ФУНКЦИЯ ВЫСТРЕЛА ===== */
+    function fireBullet() {
+      let bullet = { x: player.x + player.size / 2 - 2.5, y: player.y, size: 5, speed: 7 };
+      bullets.push(bullet);
+      if (Date.now() < bonusEffects.doubleUntil) {
+        let bullet2 = { x: player.x + player.size / 2 - 2.5 + 10, y: player.y, size: 5, speed: 7 };
+        bullets.push(bullet2);
+      }
+    }
+    
+    /* ===== СПАВН ОБЪЕКТОВ ===== */
+    function spawnEnemy() {
+      let typeRand = Math.random();
+      let enemyType, size, baseSpeed;
+      if (typeRand > 0.95) {
+        enemyType = "smart";
+        size = 20;
+        baseSpeed = enemySpeed;
+      } else if (typeRand > 0.9) {
+        enemyType = "fast";
+        size = 15;
+        baseSpeed = enemySpeed * 1.5;
+      } else if (typeRand > 0.7) {
+        enemyType = "big";
+        size = 30;
+        baseSpeed = enemySpeed * 0.8;
+      } else {
+        enemyType = "normal";
+        size = 20;
+        baseSpeed = enemySpeed;
+      }
+      let enemy = { x: 0, y: 0, size: size, type: enemyType, vx: 0, vy: 0, speed: baseSpeed };
+      if (!chaosMode) {
+        enemy.x = Math.random() * (canvas.width - size);
+        enemy.y = -size;
+        enemy.vx = 0;
+        enemy.vy = baseSpeed;
+      } else {
+        let edge = Math.floor(Math.random() * 4);
+        if (edge === 0) {
+          enemy.x = Math.random() * (canvas.width - size);
+          enemy.y = -size;
+          enemy.vx = 0;
+          enemy.vy = baseSpeed;
+        } else if (edge === 1) {
+          enemy.x = canvas.width + size;
+          enemy.y = Math.random() * (canvas.height - size);
+          enemy.vx = -baseSpeed;
+          enemy.vy = 0;
+        } else if (edge === 2) {
+          enemy.x = Math.random() * (canvas.width - size);
+          enemy.y = canvas.height + size;
+          enemy.vx = 0;
+          enemy.vy = -baseSpeed;
+        } else {
+          enemy.x = -size;
+          enemy.y = Math.random() * (canvas.height - size);
+          enemy.vx = baseSpeed;
+          enemy.vy = 0;
+        }
+      }
+      enemies.push(enemy);
+    }
+    
+    function spawnBoss() {
+      boss = { x: canvas.width / 2 - 50, y: -100, size: 100, speed: 1, health: 50, direction: 1 };
+    }
+    function spawnFinalBoss() {
+      finalBoss = { x: canvas.width / 2 - 75, y: -150, size: 150, speed: 1.5, health: 100, direction: 1 };
+    }
+    
+    function spawnWalls() {
+      walls = [];
+      walls.push({ x: 200, y: 300, width: 100, height: 20, durability: 20 });
+      walls.push({ x: 500, y: 400, width: 120, height: 20, durability: 20 });
+    }
+    
+    function spawnPowerup() {
+      let types = ["speed", "double", "freeze", "turbo"];
+      let type = types[Math.floor(Math.random() * types.length)];
+      let size = 20;
+      let powerup = { x: Math.random() * (canvas.width - size), y: Math.random() * (canvas.height - size), size: size, type: type };
+      powerups.push(powerup);
+    }
+    
+    /* ===== ОБРАБОТКА БОНУСОВ ===== */
+    function collectPowerup(powerup) {
+      if (powerup.type === "speed") {
+        bonusEffects.speedUntil = Date.now() + 10000;
+        player.speed = basePlayerSpeed + 2;
+      } else if (powerup.type === "double") {
+        bonusEffects.doubleUntil = Date.now() + 10000;
+      } else if (powerup.type === "freeze") {
+        bonusEffects.freezeUntil = Date.now() + 5000;
+        freezeEnemies = true;
+      } else if (powerup.type === "turbo") {
+        bonusEffects.turboUntil = Date.now() + 30000;
+        player.speed = basePlayerSpeed + 5;
+      }
+    }
+    
+    /* ===== ТУРБО-РЕЖИМ ===== */
+    function updateTurboMode(elapsed) {
+      if (!turboMode && elapsed >= 120000) {
+        turboMode = true;
+        turboEndTime = Date.now() + 30000;
+        player.speed = basePlayerSpeed + 5;
+      }
+      if (turboMode && Date.now() >= turboEndTime) {
+        turboMode = false;
+        player.speed = basePlayerSpeed;
+      }
+    }
+    
+    /* ===== ОБНОВЛЕНИЕ ОГНЕННЫХ ВОЛН (Fire уровень) ===== */
+    let fireWaveSpawnRate = 0.001;
+    function spawnFireWave() {
+      let wave = { x: -50, y: 0, width: 50, height: canvas.height, speed: 4 };
+      fireWaves.push(wave);
+    }
+    
+    /* ===== ОБНОВЛЕНИЕ ТАЙМЕРА ===== */
+    function updateTimer() {
+      let elapsed = Date.now() - startTime;
+      let seconds = Math.floor(elapsed / 1000);
+      document.getElementById("timer").innerText = translations[currentLang].timerPrefix + seconds + " сек.";
+      return elapsed;
+    }
+    
+    /* ===== ОСНОВНОЙ ЦИКЛ ===== */
+    function update() {
+      if (gameOver) return;
+      let elapsed = updateTimer();
+      
+      updateTurboMode(elapsed);
+      
+      // Движение игрока
+      if (keys["ArrowUp"] && player.y > 0) player.y -= player.speed;
+      if (keys["ArrowDown"] && player.y < canvas.height - player.size) player.y += player.speed;
+      if (keys["ArrowLeft"] && player.x > 0) player.x -= player.speed;
+      if (keys["ArrowRight"] && player.x < canvas.width - player.size) player.x += player.speed;
+      
+      // Fire уровень: спавн огненных волн
+      if (currentLevel === "fire" && Math.random() < fireWaveSpawnRate) {
+        spawnFireWave();
+      }
+      for (let i = fireWaves.length - 1; i >= 0; i--) {
+        fireWaves[i].x += fireWaves[i].speed;
+        if (fireWaves[i].x > canvas.width) fireWaves.splice(i, 1);
+        if (
+          player.x < fireWaves[i].x + fireWaves[i].width &&
+          player.x + player.size > fireWaves[i].x
+        ) {
+          gameOver = true;
+          alert(translations[currentLang].gameTitle + ": GAME OVER! (Fire Wave)");
+          updateLeaderboard(Math.floor((Date.now() - startTime) / 1000));
+          document.location.reload();
+        }
+      }
+      
+      // Ветер
+      if (wind.active && Date.now() < wind.endTime) {
+        player.x += wind.forceX;
+        player.y += wind.forceY;
+      } else {
+        wind.active = false;
+      }
+      if (!wind.active && Math.random() < 0.0005) {
+        wind.active = true;
+        wind.forceX = (Math.random() - 0.5) * 4;
+        wind.forceY = (Math.random() - 0.5) * 4;
+        wind.endTime = Date.now() + 3000;
+      }
+      
+      // Пули
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        bullets[i].y -= bullets[i].speed;
+        if (bullets[i].y < 0) {
+          bullets.splice(i, 1);
+          continue;
+        }
+        if (boss && bullets[i]) {
+          if (
+            bullets[i].x < boss.x + boss.size &&
+            bullets[i].x + bullets[i].size > boss.x &&
+            bullets[i].y < boss.y + boss.size &&
+            bullets[i].y + bullets[i].size > boss.y
+          ) {
+            boss.health -= 10;
+            bullets.splice(i, 1);
+            if (boss.health <= 0) {
+              boss = null;
+              bossDefeated = true;
+              alert(translations[currentLang].gameTitle + ": BOSS DEFEATED! Entering Crazy Chaos Mode!");
+              chaosMode = true;
+              spawnWalls();
+            }
+            continue;
+          }
+        }
+        if (finalBoss && bullets[i]) {
+          if (
+            bullets[i].x < finalBoss.x + finalBoss.size &&
+            bullets[i].x + bullets[i].size > finalBoss.x &&
+            bullets[i].y < finalBoss.y + finalBoss.size &&
+            bullets[i].y + bullets[i].size > finalBoss.y
+          ) {
+            finalBoss.health -= 10;
+            bullets.splice(i, 1);
+            if (finalBoss.health <= 0) {
+              finalBoss = null;
+              alert(translations[currentLang].gameTitle + ": FINAL BOSS DEFEATED! VICTORY!");
+              gameOver = true;
+              updateLeaderboard(Math.floor((Date.now() - startTime) / 1000));
+            }
+            continue;
+          }
+        }
+      }
+      
+      // Враги
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        let enemy = enemies[i];
+        if (!freezeEnemies) {
+          enemy.x += enemy.vx;
+          enemy.y += enemy.vy;
+          if (enemy.type === "smart") {
+            let dx = player.x - enemy.x;
+            let dy = player.y - enemy.y;
+            let len = Math.sqrt(dx * dx + dy * dy);
+            enemy.vx = (dx / len) * enemy.speed;
+            enemy.vy = (dy / len) * enemy.speed;
+          }
+        }
+        if (
+          player.x < enemy.x + enemy.size &&
+          player.x + player.size > enemy.x &&
+          player.y < enemy.y + enemy.size &&
+          player.y + player.size > enemy.y
+        ) {
+          if (!player.shield) {
+            gameOver = true;
+            alert(translations[currentLang].gameTitle + ": GAME OVER!");
+            updateLeaderboard(Math.floor((Date.now() - startTime) / 1000));
+            document.location.reload();
+          }
+        }
+        if (enemy.x > canvas.width || enemy.x < -enemy.size || enemy.y > canvas.height || enemy.y < -enemy.size) {
+          enemies.splice(i, 1);
+        }
+      }
+      
+      // Босс и финальный босс
+      if (boss) {
+        if (boss.y < 50) {
+          boss.y += boss.speed;
+        } else {
+          boss.x += boss.speed * boss.direction;
+          if (boss.x <= 0 || boss.x + boss.size >= canvas.width)
+            boss.direction *= -1;
+          if (Math.random() < 0.005) {
+            boss.x = Math.random() * (canvas.width - boss.size);
+          }
+        }
+        if (
+          player.x < boss.x + boss.size &&
+          player.x + player.size > boss.x &&
+          player.y < boss.y + boss.size &&
+          player.y + player.size > boss.y
+        ) {
+          if (!player.shield) {
+            gameOver = true;
+            alert(translations[currentLang].gameTitle + ": GAME OVER!");
+            updateLeaderboard(Math.floor((Date.now() - startTime) / 1000));
+            document.location.reload();
+          }
+        }
+      }
+      if (finalBoss) {
+        if (finalBoss.y < 50) {
+          finalBoss.y += finalBoss.speed;
+        } else {
+          finalBoss.x += finalBoss.speed * finalBoss.direction;
+          if (finalBoss.x <= 0 || finalBoss.x + finalBoss.size >= canvas.width)
+            finalBoss.direction *= -1;
+        }
+        if (
+          player.x < finalBoss.x + finalBoss.size &&
+          player.x + player.size > finalBoss.x &&
+          player.y < finalBoss.y + finalBoss.size &&
+          player.y + player.size > finalBoss.y
+        ) {
+          if (!player.shield) {
+            gameOver = true;
+            alert(translations[currentLang].gameTitle + ": GAME OVER!");
+            updateLeaderboard(Math.floor((Date.now() - startTime) / 1000));
+            document.location.reload();
+          }
+        }
+      }
+      
+      // Спавн врагов и бонусов
+      if (Math.random() < spawnRate) spawnEnemy();
+      if (Math.random() < 0.0005) spawnPowerup();
+      
+      // Стены
+      for (let i = walls.length - 1; i >= 0; i--) {
+        for (let j = bullets.length - 1; j >= 0; j--) {
+          if (
+            bullets[j].x < walls[i].x + walls[i].width &&
+            bullets[j].x + bullets[j].size > walls[i].x &&
+            bullets[j].y < walls[i].y + walls[i].height &&
+            bullets[j].y + bullets[j].size > walls[i].y
+          ) {
+            walls[i].durability -= 5;
+            bullets.splice(j, 1);
+            if (walls[i].durability <= 0) {
+              walls.splice(i, 1);
+            }
+            break;
+          }
+        }
+      }
+      
+      // Бонусы
+      for (let i = powerups.length - 1; i >= 0; i--) {
+        if (
+          player.x < powerups[i].x + powerups[i].size &&
+          player.x + player.size > powerups[i].x &&
+          player.y < powerups[i].y + powerups[i].size &&
+          player.y + player.size > powerups[i].y
+        ) {
+          collectPowerup(powerups[i]);
+          powerups.splice(i, 1);
+        }
+      }
+      
+      // Сброс эффектов бонусов
+      if (Date.now() > bonusEffects.speedUntil && bonusEffects.speedUntil !== 0) {
+        player.speed = basePlayerSpeed;
+        bonusEffects.speedUntil = 0;
+      }
+      if (Date.now() > bonusEffects.freezeUntil) {
+        freezeEnemies = false;
+      }
+      if (Date.now() > bonusEffects.turboUntil && bonusEffects.turboUntil !== 0) {
+        bonusEffects.turboUntil = 0;
+        if (!turboMode) player.speed = basePlayerSpeed;
+      }
+      
+      // Финальный босс
+      if (bossDefeated && !finalBossSpawned && Date.now() - startTime >= bossSpawnTime + finalBossDelay) {
+        spawnFinalBoss();
+        finalBossSpawned = true;
+      }
+      
+      enemySpeed += 0.0005;
+      spawnRate += 0.00001;
+      if (Math.random() < 0.001) {
+        let count = Math.floor(Math.random() * 6) + 5;
+        for (let i = 0; i < count; i++) spawnEnemy();
+      }
+      
+      // Автоматический щит
+      if (Date.now() - lastShieldTime >= 60000) {
+        player.shield = true;
+        lastShieldTime = Date.now();
+        setTimeout(() => { player.shield = false; }, 5000);
+      }
+    }
+    
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Игрок
+      ctx.fillStyle = player.shield ? "green" : "red";
+      ctx.fillRect(player.x, player.y, player.size, player.size);
+      
+      // Враги
+      ctx.fillStyle = (currentLevel === "tech") ? "orange" : "blue";
+      enemies.forEach(enemy => {
+        ctx.fillRect(enemy.x, enemy.y, enemy.size, enemy.size);
+      });
+      
+      // Босс и финальный босс
+      if (boss) {
+        ctx.fillStyle = "purple";
+        ctx.fillRect(boss.x, boss.y, boss.size, boss.size);
+        ctx.fillStyle = "white";
+        ctx.fillRect(boss.x, boss.y - 10, boss.size * (boss.health / 50), 5);
+      }
+      if (finalBoss) {
+        ctx.fillStyle = "orange";
+        ctx.fillRect(finalBoss.x, finalBoss.y, finalBoss.size, finalBoss.size);
+        ctx.fillStyle = "white";
+        ctx.fillRect(finalBoss.x, finalBoss.y - 10, finalBoss.size * (finalBoss.health / 100), 5);
+      }
+      
+      // Пули
+      ctx.fillStyle = "yellow";
+      bullets.forEach(bullet => {
+        ctx.fillRect(bullet.x, bullet.y, bullet.size, bullet.size);
+      });
+      
+      // Стены
+      ctx.fillStyle = "gray";
+      walls.forEach(wall => {
+        ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+      });
+      
+      // Бонусы
+      powerups.forEach(powerup => {
+        if (powerup.type === "speed") ctx.fillStyle = "cyan";
+        else if (powerup.type === "double") ctx.fillStyle = "magenta";
+        else if (powerup.type === "freeze") ctx.fillStyle = "lightblue";
+        else if (powerup.type === "turbo") ctx.fillStyle = "red";
+        ctx.fillRect(powerup.x, powerup.y, powerup.size, powerup.size);
+      });
+      
+      // Огненные волны (Fire уровень)
+      if (currentLevel === "fire") {
+        ctx.fillStyle = "red";
+        fireWaves.forEach(wave => {
+          ctx.fillRect(wave.x, wave.y, wave.width, wave.height);
+        });
+      }
+    }
+    
+    function gameLoop() {
+      if (gameOver) return;
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+    
+    function startGame() {
+      startTime = Date.now();
+      lastShieldTime = Date.now();
+      player.x = canvas.width / 2 - player.size / 2;
+      player.y = canvas.height - 60;
+      if (currentLevel === "ice") { basePlayerSpeed = 3; }
+      else if (currentLevel === "fire") { basePlayerSpeed = 5; }
+      else if (currentLevel === "tech") { basePlayerSpeed = 6; }
+      else { basePlayerSpeed = 5; }
+      player.speed = basePlayerSpeed;
+      
+      enemies = [];
+      bullets = [];
+      walls = [];
+      powerups = [];
+      fireWaves = [];
+      boss = null;
+      finalBoss = null;
+      gameOver = false;
+      bossDefeated = false;
+      chaosMode = false;
+      finalBossSpawned = false;
+      
+      gameLoop();
+    }
+  </script>
+</body>
+</html>
