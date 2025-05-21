@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CHAOS PROTOCOL</title>
+  <style>
+    body { background: #111; color: #fff; font-family: Arial,sans-serif; margin:0; }
+    canvas { background: #000; display:block; margin: 20px auto; border: 2px solid #fff; }
+    #langSelection, #levelSelection, #infoBox {
+      background: rgba(0,0,0,0.85); border:2px solid #fff; max-width:350px; margin:30px auto; padding:20px; text-align:center;
+    }
+    #langSelection, #levelSelection, #infoBox { display:none; }
+    #langSelection { display:block; }
+    button { font-size:16px; padding:10px 20px; margin:6px; border-radius:7px; border:none; background:#222; color:#fff; cursor:pointer;}
+    button:hover { background:#555; }
+    #levelButtons { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; }
+    #levelButtons button { width:150px; }
+    #gameUI { display:none; text-align:center; }
+    #timer { font-size:18px; margin:10px; }
+    #touchControls { display:none; }
+    #attackControl { display:none; }
+    @media (max-width:700px){
+      canvas { width:95vw !important; height:70vw !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="langSelection">
+    <h1 id="gameTitle">CHAOS PROTOCOL</h1>
+    <p id="gameDesc">Выберите язык для игры:</p>
+    <button onclick="setLanguage('ru')">Русский</button>
+    <button onclick="setLanguage('uk')">Українська</button>
+    <button onclick="setLanguage('en')">English</button>
+  </div>
+  <div id="levelSelection">
+    <h2 id="levelTitle">Выберите уровень</h2>
+    <div id="levelButtons"></div>
+  </div>
+  <div id="gameUI">
+    <p id="timer">Время: 0 сек.</p>
+    <canvas id="gameCanvas" width="600" height="400"></canvas><br>
+    <button onclick="showGameInfo()">ℹ️ Info / Инфо</button>
+  </div>
+  <div id="infoBox">
+    <h2 id="infoTitle">CHAOS PROTOCOL</h2>
+    <ul id="gameFeatures"></ul>
+    <button onclick="hideGameInfo()">OK</button>
+  </div>
+  <audio id="gameMusic" loop>
+    <source src="your-retro-music.mp3" type="audio/mpeg" />
+  </audio>
+<script>
+const levelList = [
+  { key: "default", name: {ru:"Стандартный хаос",uk:"Стандартний хаос",en:"Standard Chaos"} },
+  { key: "ice", name: {ru:"Ледяной хаос",uk:"Крижаний хаос",en:"Ice Chaos"} },
+  { key: "fire", name: {ru:"Огненный хаос",uk:"Вогняний хаос",en:"Fire Chaos"} },
+  { key: "tech", name: {ru:"Технократия",uk:"Технократія",en:"Technochaos"} },
+  { key: "space", name: {ru:"Космический хаос",uk:"Космічний хаос",en:"Space Chaos"} },
+  { key: "dark", name: {ru:"Тёмный лес",uk:"Темний ліс",en:"Dark Forest"} },
+  { key: "radiation", name: {ru:"Радиационный шторм",uk:"Радіаційний шторм",en:"Radiation Storm"} },
+  { key: "toxic", name: {ru:"Ядовитый туман",uk:"Отруйний туман",en:"Toxic Fog"} },
+  { key: "mirror", name: {ru:"Зеркальный мир",uk:"Дзеркальний світ",en:"Mirror World"} },
+  { key: "gravity", name: {ru:"Гравитационная аномалия",uk:"Гравітаційна аномалія",en:"Gravity Anomaly"} }
+];
+const translations = {
+  ru: {
+    gameTitle:"CHAOS PROTOCOL", gameDesc:"Выживай в мире хаоса!", infoTitle:"CHAOS PROTOCOL", levelTitle:"Выберите уровень",
+    gameFeaturesList:[
+      ["Щит активируется каждую минуту на 5 секунд.","Враги становятся быстрее со временем.","Победа — если прожить 10 минут."],
+      ["Лёд замедляет движение игрока и врагов.","Щит иногда активируется.","Победа — если прожить 10 минут."],
+      ["Появляются огненные волны, касание — проигрыш.","Щит иногда активируется.","Победа — если прожить 10 минут."],
+      ["Всё очень быстро!","Щит иногда активируется.","Победа — если прожить 10 минут."],
+      ["Невесомость: все дрейфуют, есть астероиды.","Щит иногда активируется."],
+      ["Экран затемнён, только круг света вокруг игрока.","Есть ловушки."],
+      ["Появляются радиационные зоны. При контакте — урон.","Антидот — бонус."],
+      ["Туман замедляет и наносит урон."],
+      ["Управление иногда инвертируется.","Враги зеркальны."],
+      ["В центре — чёрная дыра: всё притягивает!"]
+    ],
+    timerPrefix:"Время: "
+  },
+  uk: {
+    gameTitle:"ПРОТОКОЛ ХАОСУ", gameDesc:"Виживай у світі хаосу!", infoTitle:"ПРОТОКОЛ ХАОСУ", levelTitle:"Оберіть рівень",
+    gameFeaturesList:[
+      ["Щит активується кожну хвилину на 5 секунд.","Вороги стають швидшими з часом.","Перемога — якщо вижити 10 хвилин."],
+      ["Лід сповільнює.","Щит іноді активується.","Перемога — якщо вижити 10 хвилин."],
+      ["З'являються вогняні хвилі.","Щит іноді активується.","Перемога — якщо вижити 10 хвилин."],
+      ["Все дуже швидко!","Щит іноді активується.","Перемога — якщо вижити 10 хвилин."],
+      ["Невагомість: усі дрейфують, астероїди.","Щит іноді активується."],
+      ["Екран затемнений, коло світла.","Є пастки."],
+      ["Періодично з'являються радіаційні зони.","Антидот — бонус."],
+      ["Туман сповільнює та шкодить."],
+      ["Керування іноді інвертується.","Вороги дзеркальні."],
+      ["У центрі — чорна діра: все притягує!"]
+    ],
+    timerPrefix:"Час: "
+  },
+  en: {
+    gameTitle:"CHAOS PROTOCOL", gameDesc:"Survive the chaos!", infoTitle:"CHAOS PROTOCOL", levelTitle:"Choose Level",
+    gameFeaturesList:[
+      ["Shield every minute for 5 seconds.","Enemies speed up over time.","Win: Survive 10 min."],
+      ["Ice slows down movement.","Shield sometimes activates.","Win: Survive 10 min."],
+      ["Fire waves cross the field.","Shield sometimes activates.","Win: Survive 10 min."],
+      ["Everything is super fast!","Shield sometimes activates.","Win: Survive 10 min."],
+      ["Zero gravity: all drift, asteroids appear.","Shield sometimes activates."],
+      ["Screen is dark, only light circle.","Traps appear."],
+      ["Radiation zones appear. Contact = damage.","Antidote = bonus."],
+      ["Fog slows & damages."],
+      ["Controls invert sometimes.","Enemies move mirrored."],
+      ["Black hole in center: everything pulls in!"]
+    ],
+    timerPrefix:"Time: "
+  }
+};
+let currentLang = "ru";
+let currentLevel = "default";
+let currentLevelIndex = 0;
+
+function setLanguage(lang){
+  currentLang=lang;
+  document.getElementById("gameTitle").innerText=translations[lang].gameTitle;
+  document.getElementById("gameDesc").innerText=translations[lang].gameDesc;
+  document.getElementById("infoTitle").innerText=translations[lang].infoTitle;
+  document.getElementById("levelTitle").innerText=translations[lang].levelTitle;
+  renderLevelButtons();
+  document.getElementById("langSelection").style.display="none";
+  document.getElementById("levelSelection").style.display="block";
+}
+function renderLevelButtons(){
+  const c=document.getElementById("levelButtons");c.innerHTML="";
+  levelList.forEach((l,idx)=>{
+    const b=document.createElement("button");
+    b.innerText=l.name[currentLang];
+    b.onclick=()=>selectLevel(l.key,idx);
+    c.appendChild(b);
+  });
+}
+function selectLevel(level,idx){
+  currentLevel=level; currentLevelIndex=idx;
+  document.getElementById("levelSelection").style.display="none";
+  document.getElementById("gameUI").style.display="block";
+  //document.getElementById("gameMusic").play();
+  document.getElementById("gameFeatures").innerHTML=
+    translations[currentLang].gameFeaturesList[idx].map(f=>"<li>"+f+"</li>").join("");
+  startGame();
+}
+function showGameInfo(){document.getElementById("infoBox").style.display="block";}
+function hideGameInfo(){document.getElementById("infoBox").style.display="none";}
+
+// === ИГРА ===
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+let gameInterval = null, timerInterval = null;
+let player = null, enemies = [], bullets = [];
+let asteroids = [], fogs = [], radiations = [], traps = [];
+let controls = {left:false, right:false, up:false, down:false};
+let invertControls = false, invertTimer = 0;
+let shield = false, shieldTimer = 0;
+let startTime = 0, aliveTime = 0, gameOver=false, victory=false;
+
+function startGame(){
+  // reset
+  player = {x:300, y:350, r:14, color:"#3ff", vx:0, vy:0, speed:3, hp:3};
+  enemies = []; bullets = []; asteroids=[]; fogs=[]; radiations=[]; traps=[];
+  aliveTime=0; startTime=Date.now()/1000|0; gameOver=false; victory=false;
+  invertControls=false; invertTimer=0; shield=false; shieldTimer=0;
+  spawnEnemies();
+  clearInterval(gameInterval); clearInterval(timerInterval);
+  gameInterval = setInterval(gameLoop, 1000/60);
+  timerInterval = setInterval(updateTimer, 1000);
+}
+function updateTimer(){
+  if(gameOver)return;
+  aliveTime = (Date.now()/1000|0)-startTime;
+  document.getElementById("timer").innerText = translations[currentLang].timerPrefix + aliveTime + " сек.";
+  if(aliveTime>=600){ victory=true; endGame(true);}
+}
+function spawnEnemies(){
+  enemies=[];
+  for(let i=0;i<8;i++){
+    enemies.push({x:Math.random()*580+10, y:-Math.random()*200, r:12, color:"#f33", vy:1.5+Math.random(), mirror:Math.random()<0.5});
+  }
+}
+function spawnAsteroid(){
+  asteroids.push({x:Math.random()*580+10, y:-40, r:18+Math.random()*10, vx:(Math.random()-0.5)*1.2, vy:1.8+Math.random()*1.6});
+}
+function spawnFog(){
+  fogs.push({x:-120, y:Math.random()*320, w:120,h:80, vx:0.7});
+}
+function spawnRadiation(){
+  radiations.push({x:Math.random()*500+40, y:Math.random()*300+40, r:35+Math.random()*25, t:180});
+}
+function spawnTrap(){
+  traps.push({x:Math.random()*560+20, y:Math.random()*320+20, r:15, t:180});
+}
+function gameLoop(){
+  updateGame();
+  drawGame();
+}
+function updateGame(){
+  if(gameOver)return;
+  // Щит
+  if(aliveTime%60===0 && shieldTimer<=0 && ["default","ice","fire","tech","space"].includes(currentLevel)){
+    shield=true; shieldTimer=300; // 5 сек
+  }
+  if(shieldTimer>0){ shieldTimer--; if(shieldTimer==0)shield=false;}
+  // Управление (инверсия)
+  let spd = player.speed;
+  if(currentLevel==="ice") spd=1.7;
+  if(currentLevel==="tech") spd=4.2;
+  if(currentLevel==="fire") spd=2.6;
+  if(currentLevel==="space") spd=1.4;
+  if(currentLevel==="gravity") spd=2.6;
+  if(currentLevel==="toxic" && fogs.length && collide(player,fogs[0])) spd=1.1;
+  let c = invertControls ? {left:controls.right, right:controls.left, up:controls.down, down:controls.up} : controls;
+  // Инерция (космос)
+  if(currentLevel==="space"){
+    if(c.left) player.vx-=.13;
+    if(c.right) player.vx+=.13;
+    if(c.up) player.vy-=.13;
+    if(c.down) player.vy+=.13;
+    player.x+=player.vx; player.y+=player.vy;
+    player.vx*=0.985; player.vy*=0.985;
+    // Стенки
+    if(player.x<player.r){player.x=player.r;player.vx*=-0.7;}
+    if(player.x>600-player.r){player.x=600-player.r;player.vx*=-0.7;}
+    if(player.y<player.r){player.y=player.r;player.vy*=-0.7;}
+    if(player.y>400-player.r){player.y=400-player.r;player.vy*=-0.7;}
+    // Астероиды
+    if(Math.random()<0.013)spawnAsteroid();
+    asteroids.forEach(a=>{
+      a.x+=a.vx;a.y+=a.vy;
+      if(collide(player,a)&&!shield)endGame();
+    });
+    asteroids=asteroids.filter(a=>a.y<440&&a.x>-40&&a.x<640);
+  }else{
+    if(c.left) player.x-=spd;
+    if(c.right) player.x+=spd;
+    if(c.up) player.y-=spd;
+    if(c.down) player.y+=spd;
+    // Стенки
+    if(player.x<player.r)player.x=player.r;
+    if(player.x>600-player.r)player.x=600-player.r;
+    if(player.y<player.r)player.y=player.r;
+    if(player.y>400-player.r)player.y=400-player.r;
+  }
+  // Враги
+  enemies.forEach(e=>{
+    let vy = 1.5;
+    if(currentLevel==="tech") vy=3.6;
+    if(currentLevel==="ice") vy=0.9;
+    if(currentLevel==="fire") vy=2.2;
+    if(currentLevel==="space") vy=0.8;
+    if(currentLevel==="gravity") vy=1.1;
+    if(currentLevel==="mirror" && e.mirror) vy*=-1;
+    e.y+=vy;
+    // Mirror (отражение)
+    if(currentLevel==="mirror" && e.mirror) e.y-=vy*2;
+    if(e.y>420||e.y<-20){ e.y=-Math.random()*200; e.x=Math.random()*580+10; }
+    if(collide(player,e)&&!shield)endGame();
+  });
+  // Лёд
+  if(currentLevel==="ice" && Math.random()<0.03){
+    // Скольжение (маленький толчок)
+    player.x+=Math.random()-0.5;
+    player.y+=Math.random()-0.5;
+  }
+  // Fire
+  if(currentLevel==="fire" && aliveTime%7==0 && Math.random()<0.04){
+    bullets.push({x:Math.random()*600,y:-20,vy:7,color:"#ff0",r:10});
+  }
+  bullets.forEach(b=>{
+    b.y+=b.vy;
+    if(collide(player,b)&&!shield)endGame();
+  });
+  bullets=bullets.filter(b=>b.y<420);
+  // Radiations
+  if(currentLevel==="radiation" && Math.random()<0.015)spawnRadiation();
+  radiations.forEach(r=>{
+    r.t--;
+    if(r.t<=0)r.x=-999;
+    if(collide(player,r)){
+      player.hp--;
+      if(player.hp<=0)endGame();
+    }
+  });
+  radiations = radiations.filter(r=>r.x>0);
+  // Fog
+  if(currentLevel==="toxic" && Math.random()<0.016)spawnFog();
+  fogs.forEach(f=>{f.x+=f.vx;});
+  fogs=fogs.filter(f=>f.x<650);
+  if(currentLevel==="toxic" && fogs.length && collide(player,fogs[0])){
+    if(aliveTime%2==0)player.hp--;
+    if(player.hp<=0)endGame();
+  }
+  // Traps
+  if(currentLevel==="dark" && Math.random()<0.009)spawnTrap();
+  traps.forEach(t=>{t.t--;});
+  traps=traps.filter(t=>t.t>0);
+  traps.forEach(t=>{if(collide(player,t))endGame();});
+  // Mirror invert
+  if(currentLevel==="mirror" && Math.random()<0.006 && invertTimer<=0){
+    invertControls = !invertControls;
+    invertTimer = 150;
+  }
+  if(invertTimer>0)invertTimer--;
+  // Gravity
+  if(currentLevel==="gravity"){
+    // Чёрная дыра в центре (300,200)
+    let dx=300-player.x,dy=200-player.y,dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist>5){
+      player.x+=dx/dist*0.8;
+      player.y+=dy/dist*0.8;
+    }
+    enemies.forEach(e=>{
+      let dx=300-e.x,dy=200-e.y,dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist>5){ e.x+=dx/dist*0.4; e.y+=dy/dist*0.3;}
+    });
+    if(dist<32&&!shield)endGame();
+  }
+}
+function drawGame(){
+  ctx.clearRect(0,0,600,400);
+  // Dark forest
+  if(currentLevel==="dark"){
+    ctx.fillStyle="#111"; ctx.fillRect(0,0,600,400);
+    ctx.save();
+    ctx.globalCompositeOperation="destination-out";
+    ctx.beginPath();
+    ctx.arc(player.x,player.y,80,0,2*Math.PI);
+    ctx.fill();
+    ctx.restore();
+  }
+  // Fog
+  if(currentLevel==="toxic"){
+    fogs.forEach(f=>{
+      ctx.globalAlpha=0.18;
+      ctx.fillStyle="#c0f"; ctx.fillRect(f.x,f.y,f.w,f.h);
+      ctx.globalAlpha=1;
+    });
+  }
+  // Radiation
+  if(currentLevel==="radiation"){
+    radiations.forEach(r=>{
+      ctx.globalAlpha=0.3;
+      ctx.beginPath();
+      ctx.arc(r.x,r.y,r.r,0,2*Math.PI);
+      ctx.fillStyle="#0f6"; ctx.fill();
+      ctx.globalAlpha=1;
+    });
+  }
+  // Gravity black hole
+  if(currentLevel==="gravity"){
+    ctx.globalAlpha=0.3;
+    ctx.beginPath();
+    ctx.arc(300,200,33,0,2*Math.PI);
+    ctx.fillStyle="#003"; ctx.fill();
+    ctx.strokeStyle="#49f"; ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+  // Астероиды (space)
+  if(currentLevel==="space"){
+    asteroids.forEach(a=>{
+      ctx.beginPath();
+      ctx.arc(a.x,a.y,a.r,0,2*Math.PI);
+      ctx.fillStyle="#888"; ctx.fill();
+      ctx.strokeStyle="#fff";ctx.stroke();
+    });
+  }
+  // Traps (dark)
+  if(currentLevel==="dark"){
+    traps.forEach(t=>{
+      ctx.beginPath();
+      ctx.arc(t.x,t.y,t.r,0,2*Math.PI);
+      ctx.fillStyle="#f93"; ctx.fill();
+      ctx.strokeStyle="#fff";ctx.stroke();
+    });
+  }
+  // Враги
+  enemies.forEach(e=>{
+    ctx.beginPath();
+    ctx.arc(e.x,e.y,e.r,0,2*Math.PI);
+    ctx.fillStyle=e.color;
+    ctx.fill();
+    ctx.strokeStyle="#222"; ctx.stroke();
+  });
+  // Fire bullets
+  bullets.forEach(b=>{
+    ctx.beginPath();
+    ctx.arc(b.x,b.y,b.r,0,2*Math.PI);
+    ctx.fillStyle=b.color;
+    ctx.fill();
+    ctx.strokeStyle="#fff"; ctx.stroke();
+  });
+  // Shield
+  if(shield){
+    ctx.beginPath();
+    ctx.arc(player.x,player.y,player.r+6,0,2*Math.PI);
+    ctx.strokeStyle="#0ff"; ctx.lineWidth=3;
+    ctx.globalAlpha=0.6;
+    ctx.stroke(); ctx.globalAlpha=1; ctx.lineWidth=1;
+  }
+  // Player
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,player.r,0,2*Math.PI);
+  ctx.fillStyle=player.color;
+  ctx.fill();
+  ctx.strokeStyle="#fff";ctx.stroke();
+  // HP
+  ctx.font="14px Arial";
+  ctx.fillStyle="#fff"; ctx.fillText("HP: "+player.hp,10,20);
+  // GameOver
+  if(gameOver||victory){
+    ctx.fillStyle=gameOver?"#f44":"#3f3";
+    ctx.font="bold 36px Arial";
+    ctx.fillText(gameOver?"GAME OVER":"YOU WIN!",220,200);
+    ctx.font="18px Arial";
+    ctx.fillText("Esc — Меню / Menu",230,240);
+  }
+}
+function collide(a,b){
+  let dx=a.x-b.x,dy=a.y-b.y,dist=Math.sqrt(dx*dx+dy*dy);
+  return dist<(a.r+b.r);
+}
+function endGame(win){
+  gameOver=!win; victory=win;
+  clearInterval(gameInterval); clearInterval(timerInterval);
+}
+// ==== Управление ====
+window.addEventListener("keydown",function(e){
+  if(gameOver||victory){if(e.key==="Escape"){document.getElementById("gameUI").style.display="none";document.getElementById("levelSelection").style.display="block";}}
+  if(e.key==="ArrowLeft"||e.key==="a")controls.left=true;
+  if(e.key==="ArrowRight"||e.key==="d")controls.right=true;
+  if(e.key==="ArrowUp"||e.key==="w")controls.up=true;
+  if(e.key==="ArrowDown"||e.key==="s")controls.down=true;
+});
+window.addEventListener("keyup",function(e){
+  if(e.key==="ArrowLeft"||e.key==="a")controls.left=false;
+  if(e.key==="ArrowRight"||e.key==="d")controls.right=false;
+  if(e.key==="ArrowUp"||e.key==="w")controls.up=false;
+  if(e.key==="ArrowDown"||e.key==="s")controls.down=false;
+});
+window.onload = () => { document.getElementById("langSelection").style.display = "block"; };
+</script>
+</body>
+</html>
